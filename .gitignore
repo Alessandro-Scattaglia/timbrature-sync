@@ -1,0 +1,8 @@
+node_modules
+dist
+.env
+storage/session/*
+storage/logs/*
+storage/state/*
+playwright-report
+test-results

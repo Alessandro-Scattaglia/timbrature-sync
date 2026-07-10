@@ -1,0 +1,7 @@
+{
+    "excelPath": "",
+    "googleDrivePath": "",
+    "checkIntervalMinutes": 5,
+    "headless": true,
+    "logLevel": "info"
+}
