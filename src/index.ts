@@ -1,5 +1,5 @@
-console.log("=================================");
-console.log("     TIMBRATURE SYNC");
-console.log("=================================");
+import { runSyncCycle } from "./scheduler/runCycle.js";
 
-console.log("Applicazione avviata.");
+runSyncCycle()
+  .then(() => process.exit(0))
+  .catch(() => process.exit(1));

@@ -1,8 +1,42 @@
-node_modules
-dist
+# Dipendenze
+node_modules/
+jspm_packages/
+
+# File d'ambiente
 .env
-storage/session/*
-storage/logs/*
-storage/state/*
-playwright-report
-test-results
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Log
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+
+# Copertura test
+coverage/
+*.lcov
+
+# Build e output
+dist/
+build/
+out/
+lib-cov/
+*.tsbuildinfo
+
+# Report diagnostici
+report.[0-9]*.[0-9]*.[0-9]*.[0-9]*.json
+
+# Dati di runtime
+pids/
+*.pid
+*.seed
+*.pid.lock
+
+# System OS
+.DS_Store
+Thumbs.db

@@ -1,7 +1,7 @@
 {
-    "excelPath": "",
-    "googleDrivePath": "",
-    "checkIntervalMinutes": 5,
+    "zucchettiUrl": "https://saas.hrzucchetti.it/<TUO-DOMINIO>/jsp/home.jsp",
+    "excelPath": "G:\\Il mio Drive\\Timbrature\\Timbrature_2026-2027.xlsx",
+    "checkIntervalMinutes": 10,
     "headless": true,
     "logLevel": "info"
 }
