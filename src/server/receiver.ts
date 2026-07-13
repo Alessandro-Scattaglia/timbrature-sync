@@ -1,3 +1,7 @@
+import fs from "node:fs";
+import http from "node:http";
+import https from "node:https";
+import path from "node:path";
 import express from "express";
 import type { Logger } from "winston";
 import { incomingPunchSchema } from "./schema.js";
@@ -5,25 +9,53 @@ import { deriveDayTimes } from "../services/zucchetti/parser.js";
 import { ExcelWriter } from "../excel/excelWriter.js";
 import { loadState, saveState, getDayState, setDayState, diffAgainstState } from "../state/stateStore.js";
 
-export function createReceiverServer(excelPath: string, port: number, logger: Logger): void {
+type ReceiverServerOptions = {
+  host: string;
+  port: number;
+  protocol: "http" | "https";
+  sslKeyPath: string;
+  sslCertPath: string;
+  corsOrigin: string;
+};
+
+function resolveFromCwd(filePath: string): string {
+  return path.isAbsolute(filePath) ? filePath : path.resolve(process.cwd(), filePath);
+}
+
+function readCertificateFile(filePath: string, label: string): Buffer {
+  const resolved = resolveFromCwd(filePath);
+  if (!fs.existsSync(resolved)) {
+    throw new Error(`Certificato HTTPS mancante (${label}): ${resolved}`);
+  }
+  return fs.readFileSync(resolved);
+}
+
+export function createReceiverServer(
+  excelPath: string,
+  options: ReceiverServerOptions,
+  logger: Logger
+): void {
   const app = express();
   app.use(express.json());
 
-  // Permette richieste dal bookmarklet (cross-origin, visto che la pagina
-  // Zucchetti è su un dominio diverso dalla VM)
+  // Permette richieste dal bookmarklet, che gira sul dominio Zucchetti.
   app.use((_req, res, next) => {
-    res.setHeader("Access-Control-Allow-Origin", "*");
-    res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
+    res.setHeader("Access-Control-Allow-Origin", options.corsOrigin);
+    res.setHeader("Vary", "Origin");
+    res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
     res.setHeader("Access-Control-Allow-Headers", "Content-Type");
     next();
+  });
+
+  app.options("/api/ping", (_req, res) => {
+    res.sendStatus(204);
   });
 
   app.options("/api/punches", (_req, res) => {
     res.sendStatus(204);
   });
 
-  // Health check — il bookmarklet lo chiama prima del POST per verificare
-  // che il server sulla VM sia raggiungibile
+  // Health check: il bookmarklet lo chiama prima del POST.
   app.get("/api/ping", (_req, res) => {
     res.json({ ok: true, timestamp: new Date().toISOString() });
   });
@@ -74,8 +106,19 @@ export function createReceiverServer(excelPath: string, port: number, logger: Lo
     }
   });
 
-  app.listen(port, "0.0.0.0", () => {
-    logger.info(`Server in ascolto su http://0.0.0.0:${port}`);
-    logger.info(`Health check: http://localhost:${port}/api/ping`);
+  const server =
+    options.protocol === "https"
+      ? https.createServer(
+          {
+            key: readCertificateFile(options.sslKeyPath, "SSL_KEY"),
+            cert: readCertificateFile(options.sslCertPath, "SSL_CERT"),
+          },
+          app
+        )
+      : http.createServer(app);
+
+  server.listen(options.port, options.host, () => {
+    logger.info(`Server in ascolto su ${options.protocol}://${options.host}:${options.port}`);
+    logger.info(`Health check: ${options.protocol}://localhost:${options.port}/api/ping`);
   });
 }

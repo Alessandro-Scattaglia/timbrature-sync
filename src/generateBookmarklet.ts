@@ -1,8 +1,8 @@
 /**
- * Genera dist/bookmarklet.html — da eseguire una volta sulla VM con:
+ * Genera dist/bookmarklet.html - da eseguire una volta sulla VM con:
  *   npm run bookmarklet
  *
- * L'HTML contiene il bookmarklet già configurato con l'IP della VM e la porta.
+ * L'HTML contiene il bookmarklet gia configurato con l'IP della VM e la porta.
  * Copiare il file sul PC personale (via USB, mail, OneDrive...) e aprirlo
  * in Edge o Chrome per aggiungere il bookmarklet ai preferiti.
  */
@@ -10,6 +10,7 @@ import os from "node:os";
 import fs from "node:fs";
 import path from "node:path";
 import { loadConfig } from "./config/config.js";
+import { env } from "./config/env.schema.js";
 
 function getLocalIp(): string {
   const interfaces = os.networkInterfaces();
@@ -25,13 +26,11 @@ function getLocalIp(): string {
 
 const settings = loadConfig();
 const vmIp = getLocalIp();
-const serverUrl = `http://${vmIp}:${settings.serverPort}`;
+const serverPort = env.PORT ?? settings.serverPort;
+const serverUrl = env.BOOKMARKLET_SERVER ?? `${env.SERVER_PROTOCOL}://${vmIp}:${serverPort}`;
 
-// Il codice JavaScript del bookmarklet — deve stare tutto su una riga
-// come javascript: URL. Lo scriviamo leggibile e poi lo minifichiamo inline.
 const bookmarkletSource = `
 (async function () {
-  // ── 1. Verifica che la pagina sia Zucchetti ──────────────────────────────
   const SERVER = "${serverUrl}";
   const toast = (msg, color) => {
     const el = document.createElement("div");
@@ -40,46 +39,124 @@ const bookmarkletSource = `
       position: "fixed", top: "16px", right: "16px", zIndex: 99999,
       background: color || "#1f3864", color: "#fff", padding: "12px 20px",
       borderRadius: "8px", fontFamily: "Arial", fontSize: "14px",
-      boxShadow: "0 4px 12px rgba(0,0,0,.3)", maxWidth: "340px"
+      boxShadow: "0 4px 12px rgba(0,0,0,.3)", maxWidth: "420px"
     });
     document.body.appendChild(el);
-    setTimeout(() => el.remove(), 5000);
+    setTimeout(() => el.remove(), 6000);
   };
 
-  // ── 2. Ping per verificare che il server sulla VM sia raggiungibile ──────
   try {
     const ping = await fetch(SERVER + "/api/ping", { mode: "cors", signal: AbortSignal.timeout(4000) });
     if (!ping.ok) throw new Error("ping fallito");
   } catch {
-    toast("❌ Server VM non raggiungibile (" + SERVER + "). Verifica che la VM sia accesa e che \\'npm run serve\\' sia in esecuzione.", "#b91c1c");
+    toast("Server VM non raggiungibile (" + SERVER + "). Verifica che la VM sia accesa e che 'npm run serve' sia in esecuzione.", "#b91c1c");
     return;
   }
 
-  // ── 3. Legge la tabella timbrature dall\\'iframe Main (logica Zucchexit) ──
-  const iframe = document.querySelector("iframe[name=\\"Main\\"]") ||
-    [...document.querySelectorAll("iframe")].find(f => f.name === "Main");
-  if (!iframe) {
-    toast("⚠️ Iframe \\"Main\\" non trovato. Sei sulla pagina giusta di Zucchetti?", "#b45309");
-    return;
+  const getDocs = () => {
+    const docs = [{ doc: document, label: "pagina principale" }];
+    [...document.querySelectorAll("iframe")].forEach((iframe, i) => {
+      try {
+        const d = iframe.contentDocument || iframe.contentWindow?.document;
+        if (d) docs.push({ doc: d, label: "iframe " + (iframe.name || iframe.id || i) });
+      } catch {
+        // iframe cross-origin: non leggibile
+      }
+    });
+    return docs;
+  };
+
+  const clean = s => (s || "").replace(/\\s+/g, " ").trim();
+  const isTime = s => /^([01]\\d|2[0-3]):[0-5]\\d$/.test(clean(s));
+  const directionFromText = text => {
+    text = clean(text).toLowerCase();
+    if (/\\b(entrata|ingresso|in)\\b/.test(text)) return "IN";
+    if (/\\b(uscita|out)\\b/.test(text)) return "OUT";
+    return null;
+  };
+
+  const extractFromTimbrusGrid = doc => {
+    const punches = [];
+    const tables = [...doc.querySelectorAll('table[id$="_grid_timbrus"], table[id*="_grid_timbrus"]')];
+    tables.forEach(table => {
+      const rows = [...table.querySelectorAll('tr[lookupcells="1"], tr[id*="_grid_timbrus_row"]')];
+      rows.forEach((row, index) => {
+        const cells = [...row.querySelectorAll("td")];
+        const rowText = clean(row.innerText || row.textContent || "");
+        let time = null;
+
+        for (const cell of cells) {
+          const t = clean(cell.innerText || cell.textContent || "");
+          if (isTime(t)) {
+            time = t;
+            break;
+          }
+        }
+
+        if (!time) {
+          const match = rowText.match(/\\b([01]\\d|2[0-3]):[0-5]\\d\\b/);
+          if (match) time = match[0];
+        }
+
+        if (!time) return;
+
+        let direction = directionFromText(rowText);
+        if (!direction && row.querySelector(".blue")) direction = "IN";
+        if (!direction) direction = index % 2 === 0 ? "IN" : "OUT";
+
+        punches.push({ time, direction });
+      });
+    });
+    return punches;
+  };
+
+  const extractFromVisibleText = doc => {
+    const punches = [];
+    const roots = [doc.body, ...doc.querySelectorAll("main, section, article, div, table")].filter(Boolean);
+    const seenText = new Set();
+    roots.forEach((root, index) => {
+      const view = root.ownerDocument.defaultView;
+      const style = view ? view.getComputedStyle(root) : null;
+      if (style && (style.display === "none" || style.visibility === "hidden")) return;
+
+      const text = clean(root.innerText || root.textContent || "");
+      if (!text || seenText.has(text)) return;
+      seenText.add(text);
+      if (!/\\b(Timbrature del giorno|Visualizzazione timbrature)\\b/i.test(text)) return;
+
+      const matches = [...text.matchAll(/\\b(Entrata|Ingresso|Uscita)\\b\\s+\\b(([01]\\d|2[0-3]):[0-5]\\d)\\b/gi)];
+      matches.forEach((match, matchIndex) => {
+        const direction = directionFromText(match[1]) || ((index + matchIndex) % 2 === 0 ? "IN" : "OUT");
+        punches.push({ time: match[2], direction });
+      });
+    });
+    return punches;
+  };
+
+  const normalizePunches = punches => {
+    const unique = new Map();
+    punches.forEach(p => {
+      if (p.time && p.direction) unique.set(p.time + "|" + p.direction, p);
+    });
+    return [...unique.values()].sort((a, b) => a.time.localeCompare(b.time));
+  };
+
+  let punches = [];
+  for (const { doc } of getDocs()) {
+    punches = punches.concat(extractFromTimbrusGrid(doc));
   }
-  const doc = iframe.contentDocument || iframe.contentWindow?.document;
-  const table = doc?.querySelector("table[id$=\\"_grid_timbrus\\"]");
-  if (!table) {
-    toast("⚠️ Tabella timbrature non trovata. Attendi che la pagina si carichi completamente.", "#b45309");
-    return;
+  if (punches.length === 0) {
+    for (const { doc } of getDocs()) {
+      punches = punches.concat(extractFromVisibleText(doc));
+    }
   }
-  const rows = [...table.querySelectorAll("tbody>tr[lookupcells=\\"1\\"]")];
-  const punches = rows.map(row => ({
-    time: row.querySelectorAll(":nth-child(3)")[0]?.innerText?.trim(),
-    direction: row.querySelectorAll(".blue").length > 0 ? "IN" : "OUT"
-  })).filter(p => p.time && /^\\d{2}:\\d{2}$/.test(p.time));
+  punches = normalizePunches(punches);
 
   if (punches.length === 0) {
-    toast("ℹ️ Nessuna timbratura trovata per oggi.", "#1d4ed8");
+    toast("Nessuna timbratura trovata. Apri la pagina con Timbrature del giorno o Visualizzazione timbrature e riprova.", "#b45309");
     return;
   }
 
-  // ── 4. Invia i dati al server sulla VM ───────────────────────────────────
   const today = new Date();
   const date = today.getFullYear() + "-" +
     String(today.getMonth() + 1).padStart(2, "0") + "-" +
@@ -94,19 +171,18 @@ const bookmarkletSource = `
     const data = await res.json();
     if (data.ok) {
       const detail = data.written
-        ? " → " + Object.entries(data.written).filter(([,v])=>v).map(([k,v])=>k.toUpperCase()+": "+v).join("  ")
+        ? " -> " + Object.entries(data.written).filter(([,v])=>v).map(([k,v])=>k.toUpperCase()+": "+v).join("  ")
         : data.message || "";
-      toast("✅ Sincronizzato!" + detail, "#15803d");
+      toast("Sincronizzato!" + detail, "#15803d");
     } else {
-      toast("❌ Errore: " + data.error, "#b91c1c");
+      toast("Errore: " + data.error, "#b91c1c");
     }
   } catch (err) {
-    toast("❌ Invio fallito: " + err.message, "#b91c1c");
+    toast("Invio fallito: " + err.message, "#b91c1c");
   }
 })();
 `.trim();
 
-// Minificazione basilare: rimuove newline e spazi multipli iniziali di riga
 const minified = bookmarkletSource
   .split("\n")
   .map((l) => l.trim())
@@ -119,7 +195,7 @@ const html = `<!DOCTYPE html>
 <html lang="it">
 <head>
   <meta charset="UTF-8" />
-  <title>Timbrature Sync — Installa Bookmarklet</title>
+  <title>Timbrature Sync - Installa Bookmarklet</title>
   <style>
     body { font-family: Arial, sans-serif; max-width: 700px; margin: 60px auto; padding: 0 20px; color: #1a1a1a; }
     h1 { color: #1f3864; }
@@ -139,39 +215,39 @@ const html = `<!DOCTYPE html>
   </style>
 </head>
 <body>
-  <h1>🔖 Timbrature Sync — Bookmarklet</h1>
-  <p>Questo file è stato generato dalla VM il <strong>${new Date().toLocaleString("it-IT")}</strong>.<br>
-  Il bookmarklet è già configurato per connettersi al server sulla VM:</p>
+  <h1>Timbrature Sync - Bookmarklet</h1>
+  <p>Questo file e stato generato dalla VM il <strong>${new Date().toLocaleString("it-IT")}</strong>.<br>
+  Il bookmarklet e gia configurato per connettersi al server sulla VM:</p>
   <p class="server">${serverUrl}</p>
 
   <div class="step">
-    <h2>① Mostra la barra dei preferiti del browser</h2>
+    <h2>1. Mostra la barra dei preferiti del browser</h2>
     <p>Edge/Chrome: premi <code>Ctrl + Shift + B</code></p>
   </div>
 
   <div class="step">
-    <h2>② Trascina questo pulsante sulla barra dei preferiti</h2>
-    <a class="bookmark-btn" href="${bookmarkletUrl}">🕐 Sincronizza Timbrature</a>
+    <h2>2. Trascina questo pulsante sulla barra dei preferiti</h2>
+    <a class="bookmark-btn" href="${bookmarkletUrl}">Sincronizza Timbrature</a>
     <p style="margin-top:8px;font-size:13px;color:#555">
-      (Trascina il pulsante azzurro sulla barra in alto del browser — non cliccarci qui)
+      (Trascina il pulsante azzurro sulla barra in alto del browser - non cliccarci qui)
     </p>
   </div>
 
   <div class="step">
-    <h2>③ Come usarlo ogni giorno</h2>
+    <h2>3. Come usarlo ogni giorno</h2>
     <ol>
       <li>Apri il portale Zucchetti e vai sulla pagina con le timbrature</li>
       <li>Assicurati che la VM sia accesa e che <code>npm run serve</code> sia in esecuzione</li>
-      <li>Clicca il bookmarklet <strong>"🕐 Sincronizza Timbrature"</strong> dalla barra preferiti</li>
-      <li>Comparirà un messaggio verde con i dati scritti, oppure rosso con l'errore</li>
+      <li>Clicca il bookmarklet <strong>"Sincronizza Timbrature"</strong> dalla barra preferiti</li>
+      <li>Comparira un messaggio verde con i dati scritti, oppure rosso con l'errore</li>
     </ol>
   </div>
 
   <div class="info">
-    ⚠️ Se vedi <strong>"Server VM non raggiungibile"</strong>: verifica che la VM sia accesa
+    Se vedi <strong>"Server VM non raggiungibile"</strong>: verifica che la VM sia accesa
     e che tu abbia avviato <code>npm run serve</code> dentro la cartella del progetto.
     Se il problema persiste, il PC personale e la VM potrebbero non essere sulla stessa rete
-    — contatta il supporto IT o scrivi all'assistenza del progetto.
+    - contatta il supporto IT o scrivi all'assistenza del progetto.
   </div>
 </body>
 </html>`;
@@ -181,7 +257,7 @@ if (!fs.existsSync(outDir)) fs.mkdirSync(outDir, { recursive: true });
 const outPath = path.join(outDir, "bookmarklet.html");
 fs.writeFileSync(outPath, html, "utf-8");
 
-console.log(`✅ Bookmarklet generato: ${outPath}`);
-console.log(`   IP VM rilevato: ${vmIp}  Porta: ${settings.serverPort}`);
+console.log(`Bookmarklet generato: ${outPath}`);
+console.log(`   IP VM rilevato: ${vmIp}  Porta: ${serverPort}`);
 console.log(`   Server URL: ${serverUrl}`);
-console.log(`\n👉 Copia il file sul PC personale e aprilo nel browser per installare il bookmarklet.`);
+console.log("\nCopia il file sul PC personale e aprilo nel browser per installare il bookmarklet.");

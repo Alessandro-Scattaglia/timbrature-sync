@@ -9,6 +9,10 @@ jspm_packages/
 .env.test.local
 .env.production.local
 
+# Certificati locali self-signed: non committare chiavi o certificati reali
+certs/*
+!certs/.gitkeep
+
 # Log
 logs/
 *.log
