@@ -432,269 +432,257 @@ let frameElement = document.querySelector(`[name="Main"]`);
 let frame = frameElement.contentWindow.document;
 frameElement.onload = function() { showExitTime(); };
 
+
+// ════════════════════════════════════════════════════════════════════════════
+// ZUCCHEXIT SYNC — Sincronizzazione automatica timbrature → Google Sheets
+// ════════════════════════════════════════════════════════════════════════════
 (() => {
   "use strict";
 
+  // ── CONFIGURAZIONE ─────────────────────────────────────────────────────
+  // Dopo aver fatto il setup di Apps Script (vedi SETUP.md), incolla qui
+  // l'URL che ti ha dato Google. Finché non lo inserisci, il pulsante
+  // manuale te lo ricorderà ma il sync automatico sarà silenzioso.
+  const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbylQp3TLDvPBqq-SZmfxPWdEoLhxTnmmoRl9Ib-ZSj7VNNem1S63l-DlXEl_7QnAvVd3g/exec";
+
+  // ── Costanti ──────────────────────────────────────────────────────────
   const TABLE_SELECTOR = `table[id$="_grid_timbrus"]`;
-  const BUTTON_ID = "zucchexit-export-excel";
+  const SYNC_BTN_ID    = "zucchexit-sync-btn";
+  const TOAST_ID       = "zucchexit-toast";
 
-  function cleanText(value) {
-    return String(value ?? "")
-      .replace(/\u00a0/g, " ")
-      .replace(/\s+/g, " ")
-      .trim();
-  }
-
+  // ── Accesso all'iframe Main ────────────────────────────────────────────
   function getFrameDocument() {
-    const mainFrame = document.querySelector(`[name="Main"]`);
-
-    if (!mainFrame) {
-      return null;
-    }
-
-    try {
-      return mainFrame.contentWindow.document;
-    } catch (error) {
-      console.error(
-        "[Zucchexit Excel] Impossibile accedere all'iframe Main:",
-        error
-      );
-
-      return null;
-    }
+    const f = document.querySelector(`[name="Main"]`);
+    if (!f) return null;
+    try { return f.contentWindow.document; } catch { return null; }
   }
 
-  function findAttendanceTable() {
-    const frameDocument = getFrameDocument();
-
-    if (!frameDocument) {
-      return null;
-    }
-
-    return frameDocument.querySelector(TABLE_SELECTOR);
+  // ── Pulizia testo celle ────────────────────────────────────────────────
+  function cleanText(value) {
+    return String(value ?? "").replace(/\u00a0/g, " ").replace(/\s+/g, " ").trim();
   }
 
+  // ── Lettura timbrature dalla tabella (logica originale di Zucchexit) ──
   function readPunches() {
-    const table = findAttendanceTable();
+    const doc = getFrameDocument();
+    if (!doc) throw new Error("Iframe Main non trovato.");
 
-    if (!table) {
-      throw new Error(
-        `Tabella delle timbrature non trovata: ${TABLE_SELECTOR}`
-      );
-    }
+    const table = doc.querySelector(TABLE_SELECTOR);
+    if (!table) throw new Error("Tabella timbrature non trovata.");
 
-    /*
-     * Usiamo la stessa struttura già utilizzata da Zucchexit:
-     * - righe con lookupcells="1"
-     * - orario nella terza colonna
-     * - classe .blue per riconoscere l'entrata
-     */
-    const rows = Array.from(
-      table.querySelectorAll(`tbody > tr[lookupcells="1"]`)
-    );
-
-    const today = new Date().toLocaleDateString("it-IT");
-
+    const rows = Array.from(table.querySelectorAll(`tbody > tr[lookupcells="1"]`));
     const punches = rows
-      .map((row) => {
+      .map(row => {
         const cells = row.querySelectorAll("td");
-
-        if (cells.length < 3) {
-          return null;
-        }
-
+        if (cells.length < 3) return null;
         const time = cleanText(cells[2].innerText);
-        const timeMatch = time.match(/\b([01]?\d|2[0-3]):[0-5]\d\b/);
-
-        if (!timeMatch) {
-          return null;
-        }
-
-        const isEntry = row.querySelector(".blue") !== null;
-
+        const match = time.match(/\b([01]?\d|2[0-3]):[0-5]\d\b/);
+        if (!match) return null;
         return {
-          Data: today,
-          Ora: timeMatch[0],
-          Verso: isEntry ? "IN" : "OUT",
-          Tipo: isEntry ? "Entrata" : "Uscita"
+          ora: match[0],
+          verso: row.querySelector(".blue") !== null ? "IN" : "OUT"
         };
       })
       .filter(Boolean);
 
-    const uniquePunches = [
-      ...new Map(
-        punches.map((punch) => [
-          `${punch.Data}|${punch.Ora}|${punch.Verso}`,
-          punch
-        ])
-      ).values()
-    ];
-
-    if (uniquePunches.length === 0) {
-      throw new Error(
-        "La tabella è stata trovata, ma non contiene timbrature esportabili."
-      );
-    }
-
-    return uniquePunches;
-  }
-
-  function createFileName() {
-    const now = new Date();
-
-    const year = now.getFullYear();
-    const month = String(now.getMonth() + 1).padStart(2, "0");
-    const day = String(now.getDate()).padStart(2, "0");
-
-    const hours = String(now.getHours()).padStart(2, "0");
-    const minutes = String(now.getMinutes()).padStart(2, "0");
-    const seconds = String(now.getSeconds()).padStart(2, "0");
-
-    return (
-      `timbrature_${year}-${month}-${day}` +
-      `_${hours}-${minutes}-${seconds}.xlsx`
-    );
-  }
-
-  function exportToExcel() {
-    try {
-      if (typeof XLSX === "undefined") {
-        throw new Error(
-          "SheetJS non è disponibile nel content script."
-        );
-      }
-
-      const punches = readPunches();
-
-      console.table(punches);
-
-      const worksheet = XLSX.utils.json_to_sheet(punches, {
-        header: ["Data", "Ora", "Verso", "Tipo"]
-      });
-
-      worksheet["!cols"] = [
-        { wch: 14 },
-        { wch: 10 },
-        { wch: 10 },
-        { wch: 14 }
-      ];
-
-      const workbook = XLSX.utils.book_new();
-
-      XLSX.utils.book_append_sheet(
-        workbook,
-        worksheet,
-        "Timbrature"
-      );
-
-      XLSX.writeFile(workbook, createFileName(), {
-        compression: true
-      });
-
-      console.log(
-        `[Zucchexit Excel] Esportate ${punches.length} timbrature.`
-      );
-    } catch (error) {
-      console.error(
-        "[Zucchexit Excel] Esportazione fallita:",
-        error
-      );
-
-      alert(
-        "Esportazione timbrature non riuscita.\n\n" +
-        error.message +
-        "\n\nControlla la Console di Edge."
-      );
-    }
-  }
-
-  function addExportButton() {
-    const frameDocument = getFrameDocument();
-
-    if (!frameDocument) {
-      return false;
-    }
-
-    if (frameDocument.getElementById(BUTTON_ID)) {
+    // Deduplica per ora+verso
+    const seen = new Set();
+    const unique = punches.filter(p => {
+      const k = `${p.ora}|${p.verso}`;
+      if (seen.has(k)) return false;
+      seen.add(k);
       return true;
+    });
+
+    if (unique.length === 0) throw new Error("Nessuna timbratura trovata nella tabella.");
+    return unique;
+  }
+
+  // ── Deriva T1 / T2 / T5 dalla lista grezza ────────────────────────────
+  // Porta la stessa logica del modulo TypeScript services/zucchetti/parser.ts
+  function deriveDayTimes(punches) {
+    const sorted = [...punches].sort((a, b) => a.ora.localeCompare(b.ora));
+    const ins  = sorted.filter(p => p.verso === "IN");
+    const outs = sorted.filter(p => p.verso === "OUT");
+
+    const t1 = ins[0]?.ora;                                     // prima entrata
+    const t2 = outs.find(o => o.ora >= "12:00")?.ora;           // prima uscita dopo mezzogiorno
+
+    let t5;
+    if (t2) {
+      const rientro = ins.find(i => i.ora > t2);                // prima entrata dopo uscita pranzo
+      if (rientro) {
+        const lastOut = [...outs].reverse().find(o => o.ora > rientro.ora);
+        t5 = lastOut?.ora;                                       // ultima uscita del pomeriggio
+      }
     }
 
-    const table = frameDocument.querySelector(TABLE_SELECTOR);
+    return { t1, t2, t5 };
+  }
 
-    if (!table || !table.parentElement) {
-      return false;
+  // ── Anti-duplicati via chrome.storage.local ────────────────────────────
+  function fingerprint(punches) {
+    return punches.map(p => `${p.ora}|${p.verso}`).sort().join(",");
+  }
+
+  function hasChanged(punches) {
+    const key = `lastSync_${new Date().toISOString().slice(0, 10)}`;
+    return new Promise(resolve => {
+      chrome.storage.local.get([key], result => {
+        resolve(result[key] !== fingerprint(punches));
+      });
+    });
+  }
+
+  function saveFingerprint(punches) {
+    const key = `lastSync_${new Date().toISOString().slice(0, 10)}`;
+    chrome.storage.local.set({ [key]: fingerprint(punches) });
+  }
+
+  // ── Toast notification ─────────────────────────────────────────────────
+  function showToast(message, type = "success") {
+    document.getElementById(TOAST_ID)?.remove();
+    const colors = { success: "#15803d", error: "#b91c1c", warn: "#b45309", info: "#1d4ed8" };
+    const el = document.createElement("div");
+    el.id = TOAST_ID;
+    el.textContent = message;
+    Object.assign(el.style, {
+      position: "fixed", top: "16px", right: "16px", zIndex: "99999",
+      background: colors[type] ?? colors.info, color: "#fff",
+      padding: "12px 20px", borderRadius: "8px",
+      fontFamily: "Segoe UI, Arial, sans-serif", fontSize: "14px",
+      boxShadow: "0 4px 14px rgba(0,0,0,.35)", maxWidth: "360px",
+      lineHeight: "1.5", whiteSpace: "pre-line"
+    });
+    document.body.appendChild(el);
+    setTimeout(() => el.remove(), 7000);
+  }
+
+  // ── Invio dati ad Apps Script ──────────────────────────────────────────
+  async function syncToAppsScript(force = false) {
+    if (!APPS_SCRIPT_URL || APPS_SCRIPT_URL === "INSERISCI_QUI_L_URL_APPS_SCRIPT") {
+      if (force) showToast("⚠️ URL Apps Script non configurato.\nSegui il file SETUP.md.", "warn");
+      return;
     }
 
-    const button = frameDocument.createElement("button");
+    let punches;
+    try {
+      punches = readPunches();
+    } catch (err) {
+      if (force) showToast(`⚠️ ${err.message}`, "warn");
+      return;
+    }
 
-    button.id = BUTTON_ID;
-    button.type = "button";
-    button.textContent = "Esporta timbrature (.xlsx)";
+    const changed = await hasChanged(punches);
+    if (!changed && !force) {
+      console.log("[Zucchexit Sync] Nessuna timbratura nuova, salto.");
+      return;
+    }
 
-    Object.assign(button.style, {
-      display: "block",
-      width: "fit-content",
-      margin: "10px 0",
-      padding: "8px 14px",
-      border: "1px solid #0f6cbd",
-      borderRadius: "4px",
-      backgroundColor: "#0f6cbd",
-      color: "#ffffff",
-      cursor: "pointer",
+    const derived = deriveDayTimes(punches);
+    const today   = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+
+    if (force) showToast("🔄 Sincronizzazione in corso…", "info");
+
+    try {
+      const res  = await fetch(APPS_SCRIPT_URL, {
+        method:   "POST",
+        headers:  { "Content-Type": "application/json" },
+        body:     JSON.stringify({ date: today, ...derived }),
+        redirect: "follow"       // Apps Script reindirizza la prima richiesta
+      });
+      const data = await res.json();
+
+      if (data.ok) {
+        saveFingerprint(punches);
+        const detail = data.written
+          ? Object.entries(data.written)
+              .filter(([, v]) => v)
+              .map(([k, v]) => `${k.toUpperCase()}: ${v}`)
+              .join("  ")
+          : (data.message ?? "");
+        showToast(`✅ Sincronizzato!\n${detail}`, "success");
+      } else {
+        showToast(`❌ Errore dal server:\n${data.error}`, "error");
+      }
+    } catch (err) {
+      showToast(`❌ Invio fallito:\n${err.message}`, "error");
+    }
+  }
+
+  // ── Pulsante manuale ───────────────────────────────────────────────────
+  function addSyncButton() {
+    const doc = getFrameDocument();
+    if (!doc) return false;
+    if (doc.getElementById(SYNC_BTN_ID)) return true;
+
+    const table = doc.querySelector(TABLE_SELECTOR);
+    if (!table?.parentElement) return false;
+
+    const btn = doc.createElement("button");
+    btn.id   = SYNC_BTN_ID;
+    btn.type = "button";
+    btn.textContent = "🔄 Sincronizza Timbrature";
+    Object.assign(btn.style, {
+      display: "block", width: "fit-content", margin: "10px 0",
+      padding: "8px 16px", border: "1px solid #0f6cbd",
+      borderRadius: "4px", backgroundColor: "#0f6cbd",
+      color: "#fff", cursor: "pointer",
       fontFamily: "Segoe UI, Arial, sans-serif",
-      fontSize: "13px",
-      fontWeight: "600"
+      fontSize: "13px", fontWeight: "600"
     });
+    btn.addEventListener("mouseenter", () => { btn.style.backgroundColor = "#115ea3"; });
+    btn.addEventListener("mouseleave", () => { btn.style.backgroundColor = "#0f6cbd"; });
+    btn.addEventListener("click", () => syncToAppsScript(true)); // force = true
 
-    button.addEventListener("mouseenter", () => {
-      button.style.backgroundColor = "#115ea3";
-    });
-
-    button.addEventListener("mouseleave", () => {
-      button.style.backgroundColor = "#0f6cbd";
-    });
-
-    button.addEventListener("click", exportToExcel);
-
-    table.parentElement.insertBefore(button, table);
-
-    console.log(
-      "[Zucchexit Excel] Pulsante aggiunto nell'iframe Main."
-    );
-
+    table.parentElement.insertBefore(btn, table);
+    console.log("[Zucchexit Sync] Pulsante aggiunto.");
     return true;
   }
 
-  function initializeExcelExport() {
-    let attempts = 0;
-    const maxAttempts = 60;
+  // ── Auto-rilevamento: MutationObserver sulla tabella ──────────────────
+  let observerAttached = false;
+  function setupAutoDetect() {
+    if (observerAttached) return;
+    const doc = getFrameDocument();
+    if (!doc) return;
+    const table = doc.querySelector(TABLE_SELECTOR);
+    if (!table) return;
 
+    let debounce;
+    const observer = new MutationObserver(() => {
+      clearTimeout(debounce);
+      debounce = setTimeout(() => {
+        console.log("[Zucchexit Sync] Cambio tabella rilevato, sync automatico…");
+        syncToAppsScript(false);   // silenzioso se nessuna novità
+      }, 2000);
+    });
+    observer.observe(table, { childList: true, subtree: true });
+    observerAttached = true;
+    console.log("[Zucchexit Sync] Auto-rilevamento attivato.");
+  }
+
+  // ── Inizializzazione ───────────────────────────────────────────────────
+  function initialize() {
+    observerAttached = false;
+    let attempts = 0;
     const interval = setInterval(() => {
       attempts++;
-
-      if (addExportButton() || attempts >= maxAttempts) {
+      if (addSyncButton() || attempts >= 60) {
         clearInterval(interval);
-
-        if (attempts >= maxAttempts) {
-          console.warn(
-            "[Zucchexit Excel] Tabella non trovata entro il tempo previsto."
-          );
+        if (attempts < 60) {
+          setupAutoDetect();
+          syncToAppsScript(false); // sync silenzioso all'apertura della pagina
         }
       }
     }, 500);
   }
 
-  initializeExcelExport();
+  initialize();
 
+  // Reinizializza ogni volta che l'iframe si ricarica
   const mainFrame = document.querySelector(`[name="Main"]`);
-
   if (mainFrame) {
-    mainFrame.addEventListener("load", () => {
-      console.log(
-        "[Zucchexit Excel] Iframe Main ricaricato."
-      );
-
-      initializeExcelExport();
-    });
+    mainFrame.addEventListener("load", initialize);
   }
 })();

@@ -5,19 +5,26 @@
       "128": "img/logo-128.png"
     },
     "content_scripts": [
-  {
-    "all_frames": true,
-    "js": [
-      "xlsx.full.min.js",
-      "content.js"
+      {
+        "all_frames": true,
+        "js": [
+          "xlsx.full.min.js",
+          "content.js"
+        ],
+        "matches": [
+          "https://saas.hrzucchetti.it/*/jsp/home.jsp*"
+        ]
+      }
     ],
-    "matches": [
-      "https://saas.hrzucchetti.it/*/jsp/home.jsp*"
-    ]
-  }
-],
+    "permissions": [
+      "storage"
+    ],
+    "host_permissions": [
+      "https://script.google.com/*",
+      "https://script.googleusercontent.com/*"
+    ],
     "manifest_version": 3,
     "name": "Zucchexit",
-    "description": "Show the end of working time on Infinity Zucchetti.",
-    "version": "1.4.4"
+    "description": "Show the end of working time on Infinity Zucchetti. Sync punches to Google Sheets.",
+    "version": "2.0.0"
 }
