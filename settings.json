@@ -1,6 +1,7 @@
 {
     "zucchettiUrl": "https://saas.hrzucchetti.it/<TUO-DOMINIO>/jsp/home.jsp",
-    "excelPath": "G:\\Il mio Drive\\Timbrature\\Timbrature_2026-2027.xlsx",
+    "excelPath": "C:\\Users\\e-alessandro.scattag\\OneDrive - MSC\\Timbrature\\Timbrature_2026-2027.xlsx",
+    "serverPort": 3131,
     "checkIntervalMinutes": 10,
     "headless": true,
     "logLevel": "info"
