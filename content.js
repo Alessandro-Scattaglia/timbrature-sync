@@ -1,214 +1,213 @@
 function nearestMultipleOf15(num) {
-    // Calcola il multiplo di 15 più vicino
-    let lowerMultiple = Math.floor(num / 15) * 15;
-    let upperMultiple = Math.ceil(num / 15) * 15;
+  // Calcola il multiplo di 15 più vicino
+  let lowerMultiple = Math.floor(num / 15) * 15;
+  let upperMultiple = Math.ceil(num / 15) * 15;
 
-    if (lowerMultiple == 0) {
-        lowerMultiple = upperMultiple;
-    }
+  if (lowerMultiple == 0) {
+    lowerMultiple = upperMultiple;
+  }
 
-    // Restituisce il multiplo più vicino
-    return (num - lowerMultiple < upperMultiple - num) ? lowerMultiple : upperMultiple;
+  // Restituisce il multiplo più vicino
+  return (num - lowerMultiple < upperMultiple - num) ? lowerMultiple : upperMultiple;
 }
 
 function getExitTime() {
-    let messages = [];
-    let mainTable = frame.querySelector(`table[id$='_grid_timbrus']`);
+  let messages = [];
+  let mainTable = frame.querySelector(`table[id$='_grid_timbrus']`);
 
-    if (mainTable) {
-        let isItalian = frame.querySelector(`[id$='_11_portlet_title_lbl_title_openclosetbl']`).innerText === 'Visualizzazione timbrature';
+  if (mainTable) {
+    let isItalian = frame.querySelector(`[id$='_11_portlet_title_lbl_title_openclosetbl']`).innerText === 'Visualizzazione timbrature';
 
-        let resLessThan30Min = isItalian ? 'Hai fatto {0} minuti di pausa pranzo.' : `You had a {0} minutes lunch break.`;
-        let ressMoreThan1Hour = isItalian ? 'Hai fatto {0} minuti di pausa pranzo! Orario di uscita calcolato su 60 minuti di pausa ma saranno conteggiati {1} minuti di minor presenza.' :
-            `You had a {0} minutes lunch break! Time of exit calculated on 60 minutes of lunch break but there will be {1} minutes of lower attendance.`;
-        let resROL = isItalian ? `L'orario di uscita è calcolato su {0} ore di ROL.` : 
-            `Time of exit calculated on {0} hours of ROL.`;
-        let resLunchBreak = isItalian ? `L'orario di uscita è calcolato su {0} minuti di pausa pranzo.` :
-            `Time of exit calculated on {0} minutes of lunch break.`;
-        let resIsEstimation = isItalian ? `L'orario di uscita definitivo verrà mostrato dopo la pausa pranzo.` :
-            `The final time of exit will be shown after the lunch break.`
-        let resBefore730 = isItalian ? `L'orario di ingresso usato per il calcolo è 7:30.` :
-            `The time of entry used for the calculation is 7:30.`;
-        let resAfter14 = isItalian ? `Sei tornato da pausa pranzo dopo le 14:00, dovrai prendere ROL!` : `You've exceeded the end of the lunch break (14:00), take a ROL!`;
-        var timbrature = Array.from(mainTable.querySelectorAll('tbody>tr[lookupcells="1"]')).map((x) => { 
-            var time = x.querySelectorAll(':nth-child(3)')[0].innerText;
-            var date = new Date();
-            date.setHours(time.substring(0, 2),time.substring(3),0,0)
-            
-            return {
-                direction: x.querySelectorAll('.blue').length ? 'IN' : 'OUT',
-                time: date 
-            }});
-    
-        if (timbrature && timbrature.length) {
-            let i = 0;
-            let found = false;
-            let startTime;
-            let endTime;
-            let rolTime = 0;
-            let lunchTimeMinutes = 0;
+    let resLessThan30Min = isItalian ? 'Hai fatto {0} minuti di pausa pranzo.' : `You had a {0} minutes lunch break.`;
+    let ressMoreThan1Hour = isItalian ? 'Hai fatto {0} minuti di pausa pranzo! Orario di uscita calcolato su 60 minuti di pausa ma saranno conteggiati {1} minuti di minor presenza.' :
+      `You had a {0} minutes lunch break! Time of exit calculated on 60 minutes of lunch break but there will be {1} minutes of lower attendance.`;
+    let resROL = isItalian ? `L'orario di uscita è calcolato su {0} ore di ROL.` :
+      `Time of exit calculated on {0} hours of ROL.`;
+    let resLunchBreak = isItalian ? `L'orario di uscita è calcolato su {0} minuti di pausa pranzo.` :
+      `Time of exit calculated on {0} minutes of lunch break.`;
+    let resIsEstimation = isItalian ? `L'orario di uscita definitivo verrà mostrato dopo la pausa pranzo.` :
+      `The final time of exit will be shown after the lunch break.`
+    let resBefore730 = isItalian ? `L'orario di ingresso usato per il calcolo è 7:30.` :
+      `The time of entry used for the calculation is 7:30.`;
+    let resAfter14 = isItalian ? `Sei tornato da pausa pranzo dopo le 14:00, dovrai prendere ROL!` : `You've exceeded the end of the lunch break (14:00), take a ROL!`;
+    var timbrature = Array.from(mainTable.querySelectorAll('tbody>tr[lookupcells="1"]')).map((x) => {
+      var time = x.querySelectorAll(':nth-child(3)')[0].innerText;
+      var date = new Date();
+      date.setHours(time.substring(0, 2), time.substring(3), 0, 0)
 
-            let minDate = new Date();
-            minDate.setHours(7, 30, 0, 0);
+      return {
+        direction: x.querySelectorAll('.blue').length ? 'IN' : 'OUT',
+        time: date
+      }
+    });
 
-            let pausaStart = new Date();
-            pausaStart.setHours(12, 0, 0, 0);
+    if (timbrature && timbrature.length) {
+      let i = 0;
+      let found = false;
+      let startTime;
+      let endTime;
+      let rolTime = 0;
+      let lunchTimeMinutes = 0;
 
-            let pausaEnd = new Date();
-            pausaEnd.setHours(14, 0, 0, 0);
+      let minDate = new Date();
+      minDate.setHours(7, 30, 0, 0);
 
-            let maxIngresso = new Date();
-            maxIngresso.setHours(10, 0, 0, 0);
-    
-            //Cerca la data di inizio
-            do {
-                if (timbrature[i].direction === 'IN') {
+      let pausaStart = new Date();
+      pausaStart.setHours(12, 0, 0, 0);
 
-                    // Se ho timbrato prima delle 7:30, imposto 7:30 come orario base
-                    if (timbrature[i].time < minDate) {
-                        messages.push({ icon: 'warn', message: resBefore730 });
-                        startTime = minDate;
-                    } else {
-                        startTime = timbrature[i].time;
-                    }
-                    
-                    found = true;
-                } else {
-                    i++;
-                }
-            } while (!found && i < timbrature.length);
-    
-            //Se ho trovato la data di inizio...
-            if (startTime) 
-            {
-                //Se ho bollato l'uscita...
-                if (timbrature.slice(i).some(x=> x.direction === 'OUT')) {
-                    found = false;
-                    let inizioPausaPranzo;
-                    let finePausaPranzo;
-    
-                    //Cerca la data di uscita (inizio pausa pranzo)
-                    do {
-                        if (timbrature[i].direction === 'OUT' && timbrature[i].time >= pausaStart) {
-                            inizioPausaPranzo = timbrature[i].time;
-                            found = true;
-                        }
-                        else {
-                            i++;
-                        }
-                    } while (!found && i < timbrature.length);
-        
-                    if (inizioPausaPranzo) {
-                        found = false;
+      let pausaEnd = new Date();
+      pausaEnd.setHours(14, 0, 0, 0);
 
-                        //Cerca la data di rientro (fine pausa pranzo)
-                        do {
-                            if (timbrature[i].direction === 'IN') {
-                                finePausaPranzo = timbrature[i].time;
+      let maxIngresso = new Date();
+      maxIngresso.setHours(10, 0, 0, 0);
 
-                                if (finePausaPranzo > pausaEnd) {
-                                    messages.push({ icon: 'error', message: resAfter14 });
-                                }
+      //Cerca la data di inizio
+      do {
+        if (timbrature[i].direction === 'IN') {
 
-                                let diff = finePausaPranzo - inizioPausaPranzo;
-                                // Se ho sforato l'ora...
-                                if (diff > 3600000) {
-                                    messages.push({ icon: 'error', message: ressMoreThan1Hour.format(Math.floor(diff / 60000), Math.floor(nearestMultipleOf15(Math.floor((diff - 3600000) / 60000)))) });
+          // Se ho timbrato prima delle 7:30, imposto 7:30 come orario base
+          if (timbrature[i].time < minDate) {
+            messages.push({ icon: 'warn', message: resBefore730 });
+            startTime = minDate;
+          } else {
+            startTime = timbrature[i].time;
+          }
 
-                                    // Metto la pausa a 1 ora
-                                    finePausaPranzo = new Date(inizioPausaPranzo.getTime());
-                                    finePausaPranzo.setHours(finePausaPranzo.getHours() + 1);
-                                } else {
-                                    finePausaPranzo = timbrature[i].time;
-                                }
-
-                                found = true;
-                            }else {
-                                i++;
-                            }
-                        } while (!found && i < timbrature.length);
-                    }
-    
-                    // Se so quando sono rientrato dalla pausa pranzo...
-                    if (finePausaPranzo) {            
-                        endTime = new Date(startTime.getTime());
-                        let workHours = 8;
-
-                        if (startTime > maxIngresso) {
-                            // Ho preso o devo prendere ROL
-                            let differenza = startTime - maxIngresso;
-                            rolTime = (differenza / (1000 * 60 * 60)) % 24;
-                            rolTime = rolTime % 1 != 0 ? Math.floor(rolTime) + 1 : Math.floor(rolTime);
-                            messages.push({ icon: 'warn', message: resROL.format(rolTime) });
-
-                            workHours -= rolTime;
-                        }
-
-                        endTime.setHours(endTime.getHours() + workHours);
-                        var durataPausaPranzo = finePausaPranzo - inizioPausaPranzo;
-                        
-                        // Se ho fatto meno di mezz'ora di pausa pranzo...
-                        if (durataPausaPranzo < 1800000)
-                        {                           
-                            messages.push({ icon: 'warn', message: resLessThan30Min.format(Math.floor(durataPausaPranzo / 60000)) }); 
-                            //Imposto 30 minuti come durata
-                            durataPausaPranzo = 1800000;
-                        }
-    
-                        endTime.setMilliseconds(endTime.getMilliseconds() + durataPausaPranzo);
-                        let lunchTimeMinutes = Math.floor(durataPausaPranzo / 60000);
-                        messages.push({ icon: 'info', message: resLunchBreak.format(lunchTimeMinutes) });
-                        return { date: endTime, lunchTimeMinutes: lunchTimeMinutes, rol: rolTime, isEstimation: false, messages };
-                    }
-                }
-    
-                endTime = new Date(startTime.getTime());
-                let workHours = 8;
-
-                if (startTime > maxIngresso) {
-                    // Ho preso o devo prendere ROL
-                    let differenza = startTime - maxIngresso;
-                    rolTime = Math.round((differenza / (1000 * 60 * 60)) % 24);
-                    messages.push({ icon: 'warn', message: resROL.format(rolTime) });
-
-                    workHours -= rolTime;
-                }
-
-                endTime.setHours(endTime.getHours() + workHours);
-                if (startTime <= pausaStart) {
-                    //Calcola su mezz'ora di pausa
-                    lunchTimeMinutes = 30;
-                    endTime.setMinutes(endTime.getMinutes() + lunchTimeMinutes);
-                    messages.push({ icon: 'warn', message: resIsEstimation });
-                    return { date: endTime, lunchTimeMinutes: lunchTimeMinutes, rol: rolTime, isEstimation: true, messages };
-                }
-            }
-    
-            return { date: endTime, lunchTimeMinutes: lunchTimeMinutes, rol: rolTime, isEstimation: false, messages };
+          found = true;
+        } else {
+          i++;
         }
+      } while (!found && i < timbrature.length);
+
+      //Se ho trovato la data di inizio...
+      if (startTime) {
+        //Se ho bollato l'uscita...
+        if (timbrature.slice(i).some(x => x.direction === 'OUT')) {
+          found = false;
+          let inizioPausaPranzo;
+          let finePausaPranzo;
+
+          //Cerca la data di uscita (inizio pausa pranzo)
+          do {
+            if (timbrature[i].direction === 'OUT' && timbrature[i].time >= pausaStart) {
+              inizioPausaPranzo = timbrature[i].time;
+              found = true;
+            }
+            else {
+              i++;
+            }
+          } while (!found && i < timbrature.length);
+
+          if (inizioPausaPranzo) {
+            found = false;
+
+            //Cerca la data di rientro (fine pausa pranzo)
+            do {
+              if (timbrature[i].direction === 'IN') {
+                finePausaPranzo = timbrature[i].time;
+
+                if (finePausaPranzo > pausaEnd) {
+                  messages.push({ icon: 'error', message: resAfter14 });
+                }
+
+                let diff = finePausaPranzo - inizioPausaPranzo;
+                // Se ho sforato l'ora...
+                if (diff > 3600000) {
+                  messages.push({ icon: 'error', message: ressMoreThan1Hour.format(Math.floor(diff / 60000), Math.floor(nearestMultipleOf15(Math.floor((diff - 3600000) / 60000)))) });
+
+                  // Metto la pausa a 1 ora
+                  finePausaPranzo = new Date(inizioPausaPranzo.getTime());
+                  finePausaPranzo.setHours(finePausaPranzo.getHours() + 1);
+                } else {
+                  finePausaPranzo = timbrature[i].time;
+                }
+
+                found = true;
+              } else {
+                i++;
+              }
+            } while (!found && i < timbrature.length);
+          }
+
+          // Se so quando sono rientrato dalla pausa pranzo...
+          if (finePausaPranzo) {
+            endTime = new Date(startTime.getTime());
+            let workHours = 8;
+
+            if (startTime > maxIngresso) {
+              // Ho preso o devo prendere ROL
+              let differenza = startTime - maxIngresso;
+              rolTime = (differenza / (1000 * 60 * 60)) % 24;
+              rolTime = rolTime % 1 != 0 ? Math.floor(rolTime) + 1 : Math.floor(rolTime);
+              messages.push({ icon: 'warn', message: resROL.format(rolTime) });
+
+              workHours -= rolTime;
+            }
+
+            endTime.setHours(endTime.getHours() + workHours);
+            var durataPausaPranzo = finePausaPranzo - inizioPausaPranzo;
+
+            // Se ho fatto meno di mezz'ora di pausa pranzo...
+            if (durataPausaPranzo < 1800000) {
+              messages.push({ icon: 'warn', message: resLessThan30Min.format(Math.floor(durataPausaPranzo / 60000)) });
+              //Imposto 30 minuti come durata
+              durataPausaPranzo = 1800000;
+            }
+
+            endTime.setMilliseconds(endTime.getMilliseconds() + durataPausaPranzo);
+            let lunchTimeMinutes = Math.floor(durataPausaPranzo / 60000);
+            messages.push({ icon: 'info', message: resLunchBreak.format(lunchTimeMinutes) });
+            return { date: endTime, lunchTimeMinutes: lunchTimeMinutes, rol: rolTime, isEstimation: false, messages };
+          }
+        }
+
+        endTime = new Date(startTime.getTime());
+        let workHours = 8;
+
+        if (startTime > maxIngresso) {
+          // Ho preso o devo prendere ROL
+          let differenza = startTime - maxIngresso;
+          rolTime = Math.round((differenza / (1000 * 60 * 60)) % 24);
+          messages.push({ icon: 'warn', message: resROL.format(rolTime) });
+
+          workHours -= rolTime;
+        }
+
+        endTime.setHours(endTime.getHours() + workHours);
+        if (startTime <= pausaStart) {
+          //Calcola su mezz'ora di pausa
+          lunchTimeMinutes = 30;
+          endTime.setMinutes(endTime.getMinutes() + lunchTimeMinutes);
+          messages.push({ icon: 'warn', message: resIsEstimation });
+          return { date: endTime, lunchTimeMinutes: lunchTimeMinutes, rol: rolTime, isEstimation: true, messages };
+        }
+      }
+
+      return { date: endTime, lunchTimeMinutes: lunchTimeMinutes, rol: rolTime, isEstimation: false, messages };
     }
+  }
 }
 
 function showExitTime() {
-    let exitTime = getExitTime();
+  let exitTime = getExitTime();
 
-    if (exitTime) {
+  if (exitTime) {
 
-        let res_remainingTime;
-        let res_timeOfExit;
+    let res_remainingTime;
+    let res_timeOfExit;
 
-        if (frame.querySelector(`[id$='_11_portlet_title_lbl_title_openclosetbl']`).innerText === 'Visualizzazione timbrature') {
-            res_remainingTime = 'Tempo residuo';
-            res_timeOfExit = 'Orario di uscita';
+    if (frame.querySelector(`[id$='_11_portlet_title_lbl_title_openclosetbl']`).innerText === 'Visualizzazione timbrature') {
+      res_remainingTime = 'Tempo residuo';
+      res_timeOfExit = 'Orario di uscita';
 
-        } else {
-            res_remainingTime = 'Remaining time';
-            res_timeOfExit = 'Time of exit';
-        }
+    } else {
+      res_remainingTime = 'Remaining time';
+      res_timeOfExit = 'Time of exit';
+    }
 
-        const template = document.createElement("template");
-        template.innerHTML = 
-            `<style>
+    const template = document.createElement("template");
+    template.innerHTML =
+      `<style>
                  .x-lg-text {
                      font-size: 40px;         
                  }
@@ -349,44 +348,44 @@ function showExitTime() {
                 </div>          
             </div>
             </div>`;
-        const node = template.content.cloneNode(true);
-        document.querySelector(`div[id$='_ColumnA_container']`).appendChild(node);
+    const node = template.content.cloneNode(true);
+    document.querySelector(`div[id$='_ColumnA_container']`).appendChild(node);
 
-        if (!exitTime.isEstimation) {
-            var countDownDate = exitTime.date;
-            updateCountdown(countDownDate);
+    if (!exitTime.isEstimation) {
+      var countDownDate = exitTime.date;
+      updateCountdown(countDownDate);
 
-            this.zCountdown = setInterval(function() {
-                updateCountdown(countDownDate);
-            }, 1000);
-        }
+      this.zCountdown = setInterval(function () {
+        updateCountdown(countDownDate);
+      }, 1000);
     }
+  }
 }
 
 
 function updateCountdown(countDownDate) {
-    var now = new Date().getTime();
-    var distance = countDownDate - now;
+  var now = new Date().getTime();
+  var distance = countDownDate - now;
 
-    var hours = Math.floor((distance % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-    var minutes = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60));
-    var seconds = Math.floor((distance % (1000 * 60)) / 1000);
+  var hours = Math.floor((distance % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+  var minutes = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60));
+  var seconds = Math.floor((distance % (1000 * 60)) / 1000);
 
-    if (distance < 0) {
-        clearInterval(this.zCountdown);
-        hours = 0;
-        minutes = 0;
-        seconds = 0;
-    }
+  if (distance < 0) {
+    clearInterval(this.zCountdown);
+    hours = 0;
+    minutes = 0;
+    seconds = 0;
+  }
 
-    let countdown = hours > 0 ? `<span class="x-bold">${hours}h </span><span>${minutes}m</span>` :
-        `<span class="x-bold">${minutes}m </span><span>${seconds}s</span>`;
+  let countdown = hours > 0 ? `<span class="x-bold">${hours}h </span><span>${minutes}m</span>` :
+    `<span class="x-bold">${minutes}m </span><span>${seconds}s</span>`;
 
-    document.getElementById("x-countdown").innerHTML = countdown;
+  document.getElementById("x-countdown").innerHTML = countdown;
 }
 
 function renderCountdown(render, res_remainingTime) {
-    return render ? `<div class="x-flex-item" style="border-left: 1px solid #e3e3e3;">
+  return render ? `<div class="x-flex-item" style="border-left: 1px solid #e3e3e3;">
             <div class="x-title">${res_remainingTime}</div>
             <div class="x-countdown-container">
                 <span class="x-md-text" id="x-countdown"></span>
@@ -396,41 +395,41 @@ function renderCountdown(render, res_remainingTime) {
 }
 
 function renderEstimatedTo(isEstimation, date) {
-    if (isEstimation) {
-        date.setMinutes(date.getMinutes() + 30);
-        return `<span class="x-lg-text">&nbsp;-&nbsp;</span>
+  if (isEstimation) {
+    date.setMinutes(date.getMinutes() + 30);
+    return `<span class="x-lg-text">&nbsp;-&nbsp;</span>
         <span class="x-lg-text x-bold">${String(date.getHours()).padStart(2, "0")}</span>
         <span class="x-lg-text">:${String(date.getMinutes()).padStart(2, "0")}</span>`
-    }
+  }
 
-    return ``;
+  return ``;
 }
 
 function renderMessages(messages) {
-    let html = '';
+  let html = '';
 
-    messages.forEach(x => {
-        html += `<div class="x-message"><span class="x-icon x-${x.icon}"></span>${x.message}</div>`;
-    });
+  messages.forEach(x => {
+    html += `<div class="x-message"><span class="x-icon x-${x.icon}"></span>${x.message}</div>`;
+  });
 
-    return html;
+  return html;
 }
 
 if (!String.prototype.format) {
-    String.prototype.format = function() {
-      var args = arguments;
-      return this.replace(/{(\d+)}/g, function(match, number) { 
-        return typeof args[number] != 'undefined'
-          ? args[number]
-          : match
+  String.prototype.format = function () {
+    var args = arguments;
+    return this.replace(/{(\d+)}/g, function (match, number) {
+      return typeof args[number] != 'undefined'
+        ? args[number]
+        : match
         ;
-      });
-    };
-  }
+    });
+  };
+}
 
 let frameElement = document.querySelector(`[name="Main"]`);
 let frame = frameElement.contentWindow.document;
-frameElement.onload = function() { showExitTime(); };
+frameElement.onload = function () { showExitTime(); };
 
 
 // ════════════════════════════════════════════════════════════════════════════
@@ -447,8 +446,8 @@ frameElement.onload = function() { showExitTime(); };
 
   // ── Costanti ──────────────────────────────────────────────────────────
   const TABLE_SELECTOR = `table[id$="_grid_timbrus"]`;
-  const SYNC_BTN_ID    = "zucchexit-sync-btn";
-  const TOAST_ID       = "zucchexit-toast";
+  const SYNC_BTN_ID = "zucchexit-sync-btn";
+  const TOAST_ID = "zucchexit-toast";
 
   // ── Accesso all'iframe Main ────────────────────────────────────────────
   function getFrameDocument() {
@@ -502,7 +501,7 @@ frameElement.onload = function() { showExitTime(); };
   // Porta la stessa logica del modulo TypeScript services/zucchetti/parser.ts
   function deriveDayTimes(punches) {
     const sorted = [...punches].sort((a, b) => a.ora.localeCompare(b.ora));
-    const ins  = sorted.filter(p => p.verso === "IN");
+    const ins = sorted.filter(p => p.verso === "IN");
     const outs = sorted.filter(p => p.verso === "OUT");
 
     const t1 = ins[0]?.ora;                                     // prima entrata
@@ -580,16 +579,17 @@ frameElement.onload = function() { showExitTime(); };
     }
 
     const derived = deriveDayTimes(punches);
-    const today   = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+    const today = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
 
     if (force) showToast("🔄 Sincronizzazione in corso…", "info");
 
     try {
-      const res  = await fetch(APPS_SCRIPT_URL, {
-        method:   "POST",
-        headers:  { "Content-Type": "application/json" },
-        body:     JSON.stringify({ date: today, ...derived }),
-        redirect: "follow"       // Apps Script reindirizza la prima richiesta
+      const res = await fetch(APPS_SCRIPT_URL, {
+        method: "POST",
+        body: JSON.stringify({
+          date: today,
+          ...derived
+        })
       });
       const data = await res.json();
 
@@ -597,9 +597,9 @@ frameElement.onload = function() { showExitTime(); };
         saveFingerprint(punches);
         const detail = data.written
           ? Object.entries(data.written)
-              .filter(([, v]) => v)
-              .map(([k, v]) => `${k.toUpperCase()}: ${v}`)
-              .join("  ")
+            .filter(([, v]) => v)
+            .map(([k, v]) => `${k.toUpperCase()}: ${v}`)
+            .join("  ")
           : (data.message ?? "");
         showToast(`✅ Sincronizzato!\n${detail}`, "success");
       } else {
@@ -620,7 +620,7 @@ frameElement.onload = function() { showExitTime(); };
     if (!table?.parentElement) return false;
 
     const btn = doc.createElement("button");
-    btn.id   = SYNC_BTN_ID;
+    btn.id = SYNC_BTN_ID;
     btn.type = "button";
     btn.textContent = "🔄 Sincronizza Timbrature";
     Object.assign(btn.style, {

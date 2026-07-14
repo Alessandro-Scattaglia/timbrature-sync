@@ -267,3 +267,13 @@ function createMonthSheet(ss, date) {
   buildMonthSheet(sheet, year, month, 1, null);
   return sheet;
 }
+
+function setMySpreadsheet() {
+  PropertiesService.getScriptProperties()
+    .setProperty("SPREADSHEET_ID", "1RV0hURRUERh2Dp7emprj02N_Rgugx2I6IdMLxmO1DLQ");
+}
+
+function checkProperty() {
+  const id = PropertiesService.getScriptProperties().getProperty("SPREADSHEET_ID");
+  Logger.log("SPREADSHEET_ID attuale: " + id);
+}
