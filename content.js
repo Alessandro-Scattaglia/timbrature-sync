@@ -442,7 +442,7 @@ frameElement.onload = function () { showExitTime(); };
   // Dopo aver fatto il setup di Apps Script (vedi SETUP.md), incolla qui
   // l'URL che ti ha dato Google. Finché non lo inserisci, il pulsante
   // manuale te lo ricorderà ma il sync automatico sarà silenzioso.
-  const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbylQp3TLDvPBqq-SZmfxPWdEoLhxTnmmoRl9Ib-ZSj7VNNem1S63l-DlXEl_7QnAvVd3g/exec";
+  const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwMCfAbmIBXXQW0Ip4oI3kED9tbhOkdQABND-3mcpBa1g_LlAFGmH_bpC3sPXo6AYli/exec";
 
   // ── Costanti ──────────────────────────────────────────────────────────
   const TABLE_SELECTOR = `table[id$="_grid_timbrus"]`;
@@ -506,17 +506,15 @@ frameElement.onload = function () { showExitTime(); };
 
     const t1 = ins[0]?.ora;                                     // prima entrata
     const t2 = outs.find(o => o.ora >= "12:00")?.ora;           // prima uscita dopo mezzogiorno
+    const t3 = t2 ? ins.find(i => i.ora > t2)?.ora : undefined; // rientro dopo pausa pranzo
 
     let t5;
-    if (t2) {
-      const rientro = ins.find(i => i.ora > t2);                // prima entrata dopo uscita pranzo
-      if (rientro) {
-        const lastOut = [...outs].reverse().find(o => o.ora > rientro.ora);
-        t5 = lastOut?.ora;                                       // ultima uscita del pomeriggio
-      }
+    if (t3) {
+      const lastOut = [...outs].reverse().find(o => o.ora > t3);
+      t5 = lastOut?.ora;                                         // ultima uscita del pomeriggio
     }
 
-    return { t1, t2, t5 };
+    return { t1, t2, t3, t5 };
   }
 
   // ── Anti-duplicati via chrome.storage.local ────────────────────────────
@@ -586,10 +584,7 @@ frameElement.onload = function () { showExitTime(); };
     try {
       const res = await fetch(APPS_SCRIPT_URL, {
         method: "POST",
-        body: JSON.stringify({
-          date: today,
-          ...derived
-        })
+        body: JSON.stringify({ date: today, ...derived })
       });
       const data = await res.json();
 
