@@ -442,7 +442,7 @@ frameElement.onload = function () { showExitTime(); };
   // Dopo aver fatto il setup di Apps Script (vedi SETUP.md), incolla qui
   // l'URL che ti ha dato Google. Finché non lo inserisci, il pulsante
   // manuale te lo ricorderà ma il sync automatico sarà silenzioso.
-  const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzJ4nE8I1HXko4VyCHN_0WOf6cUgAP7ia3P7UjekZhhF499a2724YydwfWWB_pjTuCemw/exec";
+  const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxAWczniamlBJ_LYirNXVtEhv6whdzI_6z3_OrAfNSgBtIsobGINxJA41C-D-VQSbK5iQ/exec";
 
   // ── Costanti ──────────────────────────────────────────────────────────
   const TABLE_SELECTOR = `table[id$="_grid_timbrus"]`;
@@ -577,10 +577,15 @@ frameElement.onload = function () { showExitTime(); };
     }
 
     const derived = deriveDayTimes(punches);
+    console.log("PUNCHES", punches);
+    console.log("DERIVED", derived);
     const today = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
 
     if (force) showToast("🔄 Sincronizzazione in corso…", "info");
-
+    console.log("PAYLOAD", {
+      date: today,
+      ...derived
+    });
     try {
       const res = await fetch(APPS_SCRIPT_URL, {
         method: "POST",

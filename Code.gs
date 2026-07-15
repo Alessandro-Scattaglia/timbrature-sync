@@ -8,8 +8,25 @@ const DAYS_IT    = ["Domenica","Lunedì","Martedì","Mercoledì","Giovedì","Ven
 const HEADER_ROWS = 3;
 
 // Colonne (1-indexed, come in Sheets)
-const COL = { DATA:1, GIORNO:2, T1:3, T2:4, PAUSA:5, T3:6, T4:7, T5:8,
-               ORE_AZ:9, ORE_LAV:10, STATO:11, MATTINA:12, POMERIGGIO:13 };
+const COL = {
+  DATA:1,
+  GIORNO:2,
+
+  T1:3,          // C
+  T2:4,          // D
+  T3:5,          // E
+
+  T5:6,          // F
+
+  PAUSA:7,       // G
+  T4:8,          // H
+
+  ORE_AZ:9,
+  ORE_LAV:10,
+  STATO:11,
+  MATTINA:12,
+  POMERIGGIO:13
+};
 
 // ── Recupera il foglio di calcolo dal suo ID (salvato nelle proprietà) ─────
 function getSpreadsheet() {
@@ -50,7 +67,7 @@ function doGet() {
 // ════════════════════════════════════════════════════════════════════════════
 function doPost(e) {
   try {
-    const { date, t1, t2, t5 } = JSON.parse(e.postData.contents);
+    const { date, t1, t2, t3, t5 } = JSON.parse(e.postData.contents);
     if (!date) return jsonOut({ ok: false, error: "Campo 'date' mancante (YYYY-MM-DD)" });
 
     const d         = new Date(date + "T12:00:00");
@@ -87,6 +104,13 @@ function doPost(e) {
       sheet.getRange(targetRow, COL.T2).setValue(timeToValue(t2)).setNumberFormat("HH:mm");
       written.t2 = t2;
     }
+    if (t3) {
+  sheet.getRange(targetRow, COL.T3)
+       .setValue(timeToValue(t3))
+       .setNumberFormat("HH:mm");
+
+  written.t3 = t3;
+}
     if (t5) {
       sheet.getRange(targetRow, COL.T5).setValue(timeToValue(t5)).setNumberFormat("HH:mm");
       written.t5 = t5;
@@ -270,10 +294,26 @@ function createMonthSheet(ss, date) {
 
 function setMySpreadsheet() {
   PropertiesService.getScriptProperties()
-    .setProperty("SPREADSHEET_ID", "1RV0hURRUERh2Dp7emprj02N_Rgugx2I6IdMLxmO1DLQ");
+    .setProperty("SPREADSHEET_ID", "1pMfUANhzLdyW7C_QMzyHh6g2hC8W_SdlKyYmGbTjM-g");
 }
 
 function checkProperty() {
   const id = PropertiesService.getScriptProperties().getProperty("SPREADSHEET_ID");
   Logger.log("SPREADSHEET_ID attuale: " + id);
+}
+
+
+function testT5() {
+
+  const ss = getSpreadsheet();
+  const sheet = ss.getSheetByName("Lug 2026");
+
+  const targetRow = 13; // riga del 14/07/2026
+
+  sheet.getRange(targetRow, COL.T5)
+       .setValue(timeToValue("17:42"))
+       .setNumberFormat("HH:mm");
+
+  Logger.log("T5 scritto in colonna " + COL.T5);
+
 }
