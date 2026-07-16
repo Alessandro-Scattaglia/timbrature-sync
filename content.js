@@ -442,7 +442,7 @@ frameElement.onload = function () { showExitTime(); };
   // Dopo aver fatto il setup di Apps Script (vedi SETUP.md), incolla qui
   // l'URL che ti ha dato Google. Finché non lo inserisci, il pulsante
   // manuale te lo ricorderà ma il sync automatico sarà silenzioso.
-  const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxAWczniamlBJ_LYirNXVtEhv6whdzI_6z3_OrAfNSgBtIsobGINxJA41C-D-VQSbK5iQ/exec";
+  const APPS_SCRIPT_URL = "https://script.googleusercontent.com/macros/echo?user_content_key=AUkAhnS2FIby9BHtXIvsG8RYmuYEWvKo-cmuD4qZ0PqdKFI08IszVvWe5GXkuJD9E7erEKO26kNvWPwm-eeLE_rnEGTSiRsmBsVnqIw3aEKQ20V9vH8PtXdXrI4zMI-yxbkSW4PLs3o-v7Zg3udqtXUyBETl1MATMRAExy4nrI91_TLNhEzCsemtcGVOnijkejE-_s-1V0Lx-S5sKzoTbymw4ydpVU0fLxn56UaEZWxWJSxuEUukF_HLVpbpFsC-Uk4nle8xswl0erKUH5D_P-MWdPrGxVl_sg&lib=MCJw8zLV-R1tKeHIeT82DgjZOohzWkSW0";
 
   // ── Costanti ──────────────────────────────────────────────────────────
   const TABLE_SELECTOR = `table[id$="_grid_timbrus"]`;
