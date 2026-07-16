@@ -303,17 +303,39 @@ function checkProperty() {
 }
 
 
-function testT5() {
+function fillMissingT5() {
 
   const ss = getSpreadsheet();
-  const sheet = ss.getSheetByName("Lug 2026");
 
-  const targetRow = 13; // riga del 14/07/2026
+  ss.getSheets().forEach(sheet => {
 
-  sheet.getRange(targetRow, COL.T5)
-       .setValue(timeToValue("17:42"))
-       .setNumberFormat("HH:mm");
+    const lastRow = sheet.getLastRow();
 
-  Logger.log("T5 scritto in colonna " + COL.T5);
+    if (lastRow < 4) return;
 
+    for (let row = 4; row <= lastRow; row++) {
+
+      const data = sheet.getRange(row, COL.DATA).getValue();
+
+      if (!(data instanceof Date)) continue;
+
+      const t5Cell = sheet.getRange(row, COL.T5);
+
+      const t5 = t5Cell.getValue();
+
+      if (t5) continue;
+
+      const t4 = sheet.getRange(row, COL.T4).getValue();
+
+      if (!t4) continue;
+
+      t5Cell
+        .setValue(t4)
+        .setNumberFormat("HH:mm");
+
+      Logger.log(
+        `T4 copiato in T5 - Foglio ${sheet.getName()} Riga ${row}`
+      );
+    }
+  });
 }
